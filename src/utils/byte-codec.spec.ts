@@ -1,9 +1,4 @@
-import {
-  bigUintLEToByteArray,
-  byteArrayToBigUintLE as byteArrayToBigUintLE,
-  byteArrayToUintLE,
-  uintLEToByteArray,
-} from '.';
+import { bigUintLEToByteArray, byteArrayToBigUintLE, byteArrayToUintLE, uintLEToByteArray } from './byte-codec';
 
 describe('LE uint encoding and decoding', () => {
   it('should correctly encode and decode unsigned, low-endian big integers', () => {

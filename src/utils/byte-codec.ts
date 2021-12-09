@@ -1,4 +1,4 @@
-import { ReadableStreamBYOBReader } from 'stream/web';
+import { ReadableByteStreamController, ReadableStreamBYOBReader } from 'stream/web';
 
 /** Reads a byte array of `byteLength` from the provided reader. */
 export async function readByteArrayFromByteReader(
@@ -55,14 +55,14 @@ export function byteArrayToBigUintLE(byteArray: Uint8Array): bigint {
   return value;
 }
 
-/** Writes a presence byte to the provided writer and then the actual provided byte array if it is not `null`. */
-export async function writeOptionalByteArrayToByteWriter(
+/** Enqueues a presence byte to the provided controller and then the actual provided byte array if it is not `null`. */
+export function enqueueOptionalByteArrayToController(
   byteArray: Uint8Array | null,
-  writer: WritableStreamDefaultWriter<Uint8Array>,
-): Promise<void> {
-  await writer.write(byteArray ? new Uint8Array([1]) : new Uint8Array([0]));
+  controller: ReadableByteStreamController,
+) {
+  controller.enqueue(byteArray ? new Uint8Array([1]) : new Uint8Array([0]));
   if (byteArray) {
-    await writer.write(byteArray);
+    controller.enqueue(byteArray);
   }
 }
 

@@ -1,5 +1,5 @@
 import { b64UrlToBuffer, bufferTob64Url } from 'arweave/node/lib/utils';
-import { ReadableStream, WritableStream } from 'stream/web';
+import { ReadableStream } from 'stream/web';
 import {
   bigUintLEToByteArray,
   readBigUintLEFromByteReader,
@@ -9,38 +9,56 @@ import {
 import { DeserializationResult } from './deserialization-result';
 
 export class DataBundleHeader {
-  protected constructor(public dataItemOffsets: Map<string, bigint>) {}
+  constructor(public dataItemByteLengths: Map<string, bigint>) {}
 
   static async deserialize(headerStream: ReadableStream<Uint8Array>): Promise<DeserializationResult<DataBundleHeader>> {
     const reader = headerStream.getReader({ mode: 'byob' });
 
     const dataItemCount = await readBigUintLEFromByteReader(reader, 32);
-    const dataItemOffsets = new Map<string, bigint>();
+    const dataItemByteLengths = new Map<string, bigint>();
 
     for (let i = 0; i < dataItemCount; i++) {
-      const itemOffset = await readBigUintLEFromByteReader(reader, 32);
+      const itemByteLength = await readBigUintLEFromByteReader(reader, 32);
       const itemId = await readByteArrayFromByteReader(reader, 32);
-      dataItemOffsets.set(bufferTob64Url(itemId), itemOffset);
+      dataItemByteLengths.set(bufferTob64Url(itemId), itemByteLength);
     }
 
     reader.releaseLock();
 
     return {
-      result: new DataBundleHeader(dataItemOffsets),
-      byteLength: 32 + dataItemOffsets.size * (32 + 32),
+      result: new DataBundleHeader(dataItemByteLengths),
+      byteLength: 32 + dataItemByteLengths.size * (32 + 32),
     };
   }
 
-  async serialize(headerStream: WritableStream<Uint8Array>): Promise<void> {
-    const writer = headerStream.getWriter();
+  /** Returns a readable stream for the binary serialization of this bundle header. */
+  createSerializationStream(): ReadableStream<Uint8Array> {
+    return new ReadableStream({
+      type: 'bytes',
+      start: (controller) => {
+        controller.enqueue(uintLEToByteArray(this.dataItemByteLengths.size, 32));
 
-    await writer.write(uintLEToByteArray(this.dataItemOffsets.size, 32));
+        for (const [itemId, itemOffset] of this.dataItemByteLengths) {
+          controller.enqueue(bigUintLEToByteArray(itemOffset, 32));
+          controller.enqueue(b64UrlToBuffer(itemId));
+        }
 
-    for (const [itemId, itemOffset] of this.dataItemOffsets) {
-      await writer.write(bigUintLEToByteArray(itemOffset, 32));
-      await writer.write(b64UrlToBuffer(itemId));
+        controller.close();
+      },
+    });
+  }
+
+  /** Returns the absolute byte offset of the specified data item from the start of this bundle. */
+  getDataItemByteOffset(dataItemId: string): bigint {
+    let currentByteOffset = BigInt(32 + (32 + 32) * this.dataItemByteLengths.size);
+    for (const [itemId, itemByteLength] of this.dataItemByteLengths.entries()) {
+      if (itemId === dataItemId) {
+        return currentByteOffset;
+      }
+
+      currentByteOffset += itemByteLength;
     }
 
-    writer.releaseLock();
+    throw Error(`${dataItemId} is not present in bundle!`);
   }
 }

@@ -6,6 +6,7 @@ import {
   decodeTagsFromByteArray,
   deepHashStream,
   encodeTagsToByteArray,
+  enqueueOptionalByteArrayToController,
   readByteArrayFromByteReader,
   readOptionalByteArrayFromByteReader,
   readUintLEFromByteReader,
@@ -13,7 +14,6 @@ import {
   SIGNATURE_TYPE_CONSTANTS,
   Tag,
   uintLEToByteArray,
-  writeOptionalByteArrayToByteWriter,
 } from '../utils';
 import { DeserializationResult } from './deserialization-result';
 
@@ -68,22 +68,26 @@ export class DataItemHeader {
     };
   }
 
-  async serialize(headerStream: WritableStream<Uint8Array>): Promise<void> {
-    const writer = headerStream.getWriter();
+  /** Returns a readable stream for the binary serialization of this item header. */
+  createSerializationStream(): ReadableStream<Uint8Array> {
+    return new ReadableStream({
+      type: 'bytes',
+      start: (controller) => {
+        controller.enqueue(uintLEToByteArray(this.signatureType, 2));
+        controller.enqueue(this.signature);
+        controller.enqueue(this.owner);
 
-    await writer.write(uintLEToByteArray(this.signatureType, 2));
-    await writer.write(this.signature);
-    await writer.write(this.owner);
+        enqueueOptionalByteArrayToController(this.target, controller);
+        enqueueOptionalByteArrayToController(this.anchor, controller);
 
-    await writeOptionalByteArrayToByteWriter(this.target, writer);
-    await writeOptionalByteArrayToByteWriter(this.anchor, writer);
+        const tagBytes = encodeTagsToByteArray(this.tags);
+        controller.enqueue(uintLEToByteArray(this.tags.length, 8));
+        controller.enqueue(uintLEToByteArray(tagBytes.byteLength, 8));
+        controller.enqueue(tagBytes);
 
-    const tagBytes = encodeTagsToByteArray(this.tags);
-    await writer.write(uintLEToByteArray(this.tags.length, 8));
-    await writer.write(uintLEToByteArray(tagBytes.length, 8));
-    await writer.write(tagBytes);
-
-    writer.releaseLock();
+        controller.close();
+      },
+    });
   }
 
   addTag(name: string, value: string): void {

@@ -1,7 +1,7 @@
-# arweave-stream-tx
+# arweave-stream-bundle
 
-[![npm](https://img.shields.io/npm/v/arweave-stream-tx)](https://www.npmjs.com/package/arweave-stream-tx)
-[![tests](https://github.com/CDDelta/arweave-stream-tx/workflows/tests/badge.svg)](https://github.com/CDDelta/arweave-stream-tx/actions?query=workflow%3Atests)
+[![npm](https://img.shields.io/npm/v/arweave-stream-bundle)](https://www.npmjs.com/package/arweave-stream-bundle)
+[![tests](https://github.com/CDDelta/arweave-stream-bundle/workflows/tests/badge.svg)](https://github.com/CDDelta/arweave-stream-bundle/actions?query=workflow%3Atests)
 
 Since the release of the v2 transaction format, Arweave theoretically supports data transactions of infinite size. However, common interfaces for creating Arweave transactions such as `arweave-js` are limited in the size of transactions they can create due to their implementation requiring all transaction data be eagerly loaded into memory. This bounds them to their runtime memory limitations (eg. approx. ~2GB for Node) and prevents complete utility of Arweave's capabilities.
 
