@@ -27,7 +27,9 @@
     "typescript": "^4.5.2"
   },
   "dependencies": {
-    "arweave": "^1.10.0",
     "avsc": "^5.7.3"
+  },
+  "peerDependencies": {
+    "arweave": "^1.10.0"
   }
 }
