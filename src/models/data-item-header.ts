@@ -1,21 +1,136 @@
-import { readChunkFromByteStream } from "src/utils";
+import Arweave from 'arweave';
+import { b64UrlToBuffer, bufferTob64Url, stringToB64Url, stringToBuffer } from 'arweave/node/lib/utils';
+import { JWKInterface } from 'arweave/node/lib/wallet';
+import { ReadableStream } from 'stream/web';
+import {
+  decodeTagsFromByteArray,
+  deepHashStream,
+  encodeTagsToByteArray,
+  readByteArrayFromByteReader,
+  readOptionalByteArrayFromByteReader,
+  readUintLEFromByteReader,
+  SignatureType,
+  SIGNATURE_TYPE_CONSTANTS,
+  Tag,
+  uintLEToByteArray,
+  writeOptionalByteArrayToByteWriter,
+} from '../utils';
+import { DeserializationResult } from './deserialization-result';
 
 export class DataItemHeader {
-  signatureType: string;
-  signature: string;
-  owner: string;
-  target?: string;
-  anchor?: string;
-  tags: [];
+  id: string | null;
+  signatureType = SignatureType.PS256_65537;
+  signature: Uint8Array;
+  owner: Uint8Array;
+  target: Uint8Array | null;
+  anchor: Uint8Array | null;
 
-  headerByteLength: number;
+  tags: Tag[] = [];
 
-  static async deserialize(header: AsyncIterable<Buffer>): Promise<DataItemHeader> {
-    const signatureType = await readChunkFromByteStream(header, 2);
-    const signature = await readChunkFromByteStream(header, 5000);
-
-    const owner = 
+  constructor(properties: Partial<DataItemHeader> = {}) {
+    Object.assign(this, properties);
   }
 
-  async serialize(): Promise<Uint8Array> {}
+  static async deserialize(headerStream: ReadableStream<Uint8Array>): Promise<DeserializationResult<DataItemHeader>> {
+    const reader = headerStream.getReader({ mode: 'byob' });
+
+    const signatureType: SignatureType = await readUintLEFromByteReader(reader, 2);
+
+    const { signatureByteLength, publicKeyByteLength } = SIGNATURE_TYPE_CONSTANTS[signatureType];
+    const signature = await readByteArrayFromByteReader(reader, signatureByteLength);
+    const owner = await readByteArrayFromByteReader(reader, publicKeyByteLength);
+
+    const target = await readOptionalByteArrayFromByteReader(reader, 32);
+    const anchor = await readOptionalByteArrayFromByteReader(reader, 32);
+
+    const tagCount = await readUintLEFromByteReader(reader, 8);
+    const tagByteLength = await readUintLEFromByteReader(reader, 8);
+
+    const tagBytes = await readByteArrayFromByteReader(reader, tagByteLength);
+    const tags = decodeTagsFromByteArray(tagBytes);
+
+    reader.releaseLock();
+
+    const id = await Arweave.crypto.hash(signature, 'SHA-256').then((bytes) => bufferTob64Url(bytes));
+
+    return {
+      result: new DataItemHeader({
+        id,
+        signatureType,
+        signature,
+        owner,
+        target,
+        anchor,
+        tags,
+      }),
+      byteLength:
+        2 + signatureByteLength + publicKeyByteLength + (target ? 33 : 1) + (anchor ? 33 : 1) + 8 + 8 + tagByteLength,
+    };
+  }
+
+  async serialize(headerStream: WritableStream<Uint8Array>): Promise<void> {
+    const writer = headerStream.getWriter();
+
+    await writer.write(uintLEToByteArray(this.signatureType, 2));
+    await writer.write(this.signature);
+    await writer.write(this.owner);
+
+    await writeOptionalByteArrayToByteWriter(this.target, writer);
+    await writeOptionalByteArrayToByteWriter(this.anchor, writer);
+
+    const tagBytes = encodeTagsToByteArray(this.tags);
+    await writer.write(uintLEToByteArray(this.tags.length, 8));
+    await writer.write(uintLEToByteArray(tagBytes.length, 8));
+    await writer.write(tagBytes);
+
+    writer.releaseLock();
+  }
+
+  addTag(name: string, value: string): void {
+    this.tags.push({
+      name: stringToB64Url(name),
+      value: stringToB64Url(value),
+    });
+  }
+
+  async sign(
+    signatureType: SignatureType.PS256_65537,
+    jwk: JWKInterface,
+    dataStream: ReadableStream<Uint8Array>,
+  ): Promise<void> {
+    this.signatureType = signatureType;
+    this.owner ??= b64UrlToBuffer(jwk.n);
+
+    const signatureData = await this.getSignatureData(dataStream);
+    this.signature = await Arweave.crypto.sign(jwk, signatureData);
+    this.id = await Arweave.crypto.hash(this.signature, 'SHA-256').then((bytes) => bufferTob64Url(bytes));
+  }
+
+  async verify(dataStream: ReadableStream<Uint8Array>): Promise<boolean> {
+    const expectedId = await Arweave.crypto.hash(this.signature, 'SHA-256').then((bytes) => bufferTob64Url(bytes));
+    if (this.id !== expectedId) {
+      return false;
+    }
+
+    const signatureData = await this.getSignatureData(dataStream);
+    switch (this.signatureType) {
+      case SignatureType.PS256_65537:
+        return await Arweave.crypto.verify(bufferTob64Url(this.owner), signatureData, this.signature);
+      default:
+        throw Error('Signature type unsupported!');
+    }
+  }
+
+  async getSignatureData(dataStream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+    return await deepHashStream([
+      stringToBuffer('dataitem'),
+      stringToBuffer('1'),
+      stringToBuffer(this.signatureType.toString()),
+      this.owner,
+      this.target || new Uint8Array(0),
+      this.anchor || new Uint8Array(0),
+      encodeTagsToByteArray(this.tags),
+      dataStream,
+    ]);
+  }
 }

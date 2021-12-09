@@ -1,24 +1,46 @@
-import { bufferTob64Url } from 'arweave/node/lib/utils';
-import { readBigUIntLEFromByteStream, readChunkFromByteStream } from 'src/utils';
+import { b64UrlToBuffer, bufferTob64Url } from 'arweave/node/lib/utils';
+import { ReadableStream, WritableStream } from 'stream/web';
+import {
+  bigUintLEToByteArray,
+  readBigUintLEFromByteReader,
+  readByteArrayFromByteReader,
+  uintLEToByteArray,
+} from '../utils';
+import { DeserializationResult } from './deserialization-result';
 
 export class DataBundleHeader {
-  constructor(public readonly dataItemOffsets: Map<string, bigint>) {}
+  protected constructor(public dataItemOffsets: Map<string, bigint>) {}
 
-  static async deserialize(header: AsyncIterable<Buffer>): Promise<DataBundleHeader> {
+  static async deserialize(headerStream: ReadableStream<Uint8Array>): Promise<DeserializationResult<DataBundleHeader>> {
+    const reader = headerStream.getReader({ mode: 'byob' });
+
+    const dataItemCount = await readBigUintLEFromByteReader(reader, 32);
     const dataItemOffsets = new Map<string, bigint>();
-    for await (const [itemId, itemOffset] of this.deserializeAsync(header)) {
-      dataItemOffsets.set(itemId, itemOffset);
-    }
-    return new DataBundleHeader(dataItemOffsets);
-  }
-
-  static async *deserializeAsync(header: AsyncIterable<Buffer>): AsyncGenerator<[string, bigint], void, unknown> {
-    const dataItemCount = await readBigUIntLEFromByteStream(header, 32);
 
     for (let i = 0; i < dataItemCount; i++) {
-      const itemOffset = await readBigUIntLEFromByteStream(header, 32);
-      const itemId = await readChunkFromByteStream(header, 32);
-      yield [bufferTob64Url(itemId), itemOffset];
+      const itemOffset = await readBigUintLEFromByteReader(reader, 32);
+      const itemId = await readByteArrayFromByteReader(reader, 32);
+      dataItemOffsets.set(bufferTob64Url(itemId), itemOffset);
     }
+
+    reader.releaseLock();
+
+    return {
+      result: new DataBundleHeader(dataItemOffsets),
+      byteLength: 32 + dataItemOffsets.size * (32 + 32),
+    };
+  }
+
+  async serialize(headerStream: WritableStream<Uint8Array>): Promise<void> {
+    const writer = headerStream.getWriter();
+
+    await writer.write(uintLEToByteArray(this.dataItemOffsets.size, 32));
+
+    for (const [itemId, itemOffset] of this.dataItemOffsets) {
+      await writer.write(bigUintLEToByteArray(itemOffset, 32));
+      await writer.write(b64UrlToBuffer(itemId));
+    }
+
+    writer.releaseLock();
   }
 }
