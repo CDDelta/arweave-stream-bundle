@@ -13,7 +13,7 @@ import {
   SignatureType,
   SIGNATURE_TYPE_CONSTANTS,
   Tag,
-  uintLEToByteArray
+  uintLEToByteArray,
 } from '../utils';
 import { DeserializationResult } from './deserialization-result';
 
