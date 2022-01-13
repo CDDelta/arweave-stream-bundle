@@ -1,6 +1,5 @@
 import Arweave from 'arweave';
 import { createHash } from 'crypto';
-import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 import { ReadableStream } from 'stream/web';
 
@@ -39,13 +38,11 @@ async function deepHashBlob(chunk: DeepHashChunk): Promise<Uint8Array> {
 
     return await Arweave.crypto.hash(taggedHash, 'SHA-384');
   } else {
-    // @ts-ignore
-    const dataStream = Readable.fromWeb(chunk);
     const hasher = createHash('sha384');
 
     let chunkByteLength = 0;
     await pipeline(
-      dataStream,
+      chunk,
       async function* (source: AsyncIterable<Uint8Array>) {
         for await (const buffer of source) {
           chunkByteLength += buffer.byteLength;
