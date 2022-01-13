@@ -62,7 +62,7 @@ export function enqueueOptionalByteArrayToController(
 ) {
   controller.enqueue(byteArray ? new Uint8Array([1]) : new Uint8Array([0]));
   if (byteArray) {
-    controller.enqueue(byteArray);
+    controller.enqueue(new Uint8Array(byteArray));
   }
 }
 

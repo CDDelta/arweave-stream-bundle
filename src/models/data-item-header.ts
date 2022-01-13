@@ -13,7 +13,7 @@ import {
   SignatureType,
   SIGNATURE_TYPE_CONSTANTS,
   Tag,
-  uintLEToByteArray,
+  uintLEToByteArray
 } from '../utils';
 import { DeserializationResult } from './deserialization-result';
 
@@ -74,8 +74,8 @@ export class DataItemHeader {
       type: 'bytes',
       start: (controller) => {
         controller.enqueue(uintLEToByteArray(this.signatureType, 2));
-        controller.enqueue(this.signature);
-        controller.enqueue(this.owner);
+        controller.enqueue(new Uint8Array(this.signature));
+        controller.enqueue(new Uint8Array(this.owner));
 
         enqueueOptionalByteArrayToController(this.target, controller);
         enqueueOptionalByteArrayToController(this.anchor, controller);
