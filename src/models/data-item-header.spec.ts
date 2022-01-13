@@ -29,7 +29,7 @@ describe('DataItemHeader', () => {
   });
 
   it('should be able to properly sign and verify a newly created item header', async () => {
-    jest.setTimeout(10 * 60 * 1000);
+    jest.setTimeout(15 * 60 * 1000);
 
     const header = new DataItemHeader();
     header.addTag('App-Name', 'Test-App');
