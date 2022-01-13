@@ -1,10 +1,14 @@
 import { JWKInterface } from 'arweave/node/lib/wallet';
+import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { buffer } from 'stream/consumers';
 import { TransformStream } from 'stream/web';
+import { promisify } from 'util';
 import { createReadableFileStream } from '../../test/utils';
 import { SignatureType } from '../utils';
 import { DataItemHeader } from './data-item-header';
+
+const exec = promisify(require('child_process').exec);
 
 describe('DataItemHeader', () => {
   it('should be able to properly deserialize and serialize an item header', async () => {
@@ -25,11 +29,16 @@ describe('DataItemHeader', () => {
   });
 
   it('should be able to properly sign and verify a newly created item header', async () => {
+    jest.setTimeout(10 * 60 * 1000);
+
     const header = new DataItemHeader();
     header.addTag('App-Name', 'Test-App');
     header.addTag('Content-Type', 'text/markdown');
 
-    const dataPath = './test/fixtures/tiny-file.md';
+    const dataPath = './test/fixtures/large-file.bin';
+    if (!existsSync(dataPath)) {
+      await exec(`fallocate -l 5G ${dataPath}`);
+    }
 
     const jwk: JWKInterface = await import('../../test/fixtures/test-key.json');
     const dataSigningStream = createReadableFileStream(dataPath);
