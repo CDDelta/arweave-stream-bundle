@@ -2,9 +2,9 @@ import { JWKInterface } from 'arweave/node/lib/wallet';
 import { readFile } from 'fs/promises';
 import { buffer } from 'stream/consumers';
 import { createReadableFileStream } from '../../test/utils';
-import { SignatureType } from '../utils';
 import { DataItem } from './data-item';
 import { DataItemHeader } from './data-item-header';
+import { SignatureType } from './signature-type';
 
 describe('DataItem', () => {
   it('should be able to be serialized properly', async () => {

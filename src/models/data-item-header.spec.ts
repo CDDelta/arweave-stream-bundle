@@ -5,8 +5,8 @@ import { buffer } from 'stream/consumers';
 import { TransformStream } from 'stream/web';
 import { promisify } from 'util';
 import { createReadableFileStream, createUint8ArrayTransformer } from '../../test/utils';
-import { SignatureType } from '../utils';
 import { DataItemHeader } from './data-item-header';
+import { SignatureType } from './signature-type';
 
 const exec = promisify(require('child_process').exec);
 
