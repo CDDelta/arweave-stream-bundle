@@ -1,12 +1,17 @@
 import { ReadableByteStreamControllerCallback, ReadableStream } from 'stream/web';
 import { DataItemHeader } from './data-item-header';
 
+/** A container class for the convenient passing and serialization of data items. */
 export class DataItem {
-  constructor(readonly header: DataItemHeader, readonly data: ReadableStream<Uint8Array>) {}
+  /**
+   * @param header the header associated with this data item.
+   * @param dataStreamer a function that returns a `ReadableStream` of this data item's data.
+   */
+  constructor(readonly header: DataItemHeader, readonly dataStreamer: () => ReadableStream<Uint8Array>) {}
 
-  /** Returns a readable stream for the binary serialization of this item header. */
+  /** Returns a readable stream for the binary serialization of this data item. */
   createSerializationStream(): ReadableStream<Uint8Array> {
-    const sourceStreams = [this.header.createSerializationStream(), this.data];
+    const sourceStreams = [this.header.createSerializationStream(), this.dataStreamer()];
 
     let sourceStreamIndex = 0;
     let streamIterator: AsyncIterableIterator<Uint8Array> | null;

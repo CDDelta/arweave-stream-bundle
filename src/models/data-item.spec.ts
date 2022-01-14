@@ -16,7 +16,7 @@ describe('DataItem', () => {
     const dataSigningStream = createReadableFileStream(dataPath);
     await header.sign(SignatureType.PS256_65537, jwk, dataSigningStream);
 
-    const dataItem = new DataItem(header, createReadableFileStream(dataPath));
+    const dataItem = new DataItem(header, () => createReadableFileStream(dataPath));
 
     const serializationOuput = await buffer(dataItem.createSerializationStream() as any);
     const headerBytes = await buffer(header.createSerializationStream() as any);
