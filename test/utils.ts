@@ -1,5 +1,5 @@
 import { FileHandle, open } from 'fs/promises';
-import { ReadableStream } from 'stream/web';
+import { ReadableStream, TransformStream } from 'stream/web';
 
 const DEFAULT_CHUNK_SIZE = 1024;
 
@@ -30,5 +30,11 @@ export function createReadableFileStream(filePath: string, position = 0): Readab
       return fileHandle.close();
     },
     autoAllocateChunkSize: DEFAULT_CHUNK_SIZE,
+  });
+}
+
+export function createUint8ArrayTransformer(): TransformStream<ArrayBuffer, Uint8Array> {
+  return new TransformStream({
+    transform: (chunk, controller) => controller.enqueue(new Uint8Array(chunk)),
   });
 }

@@ -15,3 +15,10 @@ declare module 'stream/web' {
     releaseLock(): void;
   }
 }
+
+declare module 'fs/promises' {
+  import { ReadableStream } from 'stream/web';
+  interface FileHandle {
+    readableWebStream(): ReadableStream<ArrayBuffer>;
+  }
+}
