@@ -1,5 +1,5 @@
 import Arweave from 'arweave';
-import { b64UrlToBuffer, bufferTob64Url, stringToB64Url, stringToBuffer } from 'arweave/node/lib/utils';
+import { b64UrlToBuffer, bufferTob64Url, stringToBuffer } from 'arweave/node/lib/utils';
 import { JWKInterface } from 'arweave/node/lib/wallet';
 import { ReadableStream } from 'stream/web';
 import {
@@ -110,8 +110,8 @@ export class DataItemHeader {
 
   addTag(name: string, value: string): void {
     this.tags.push({
-      name: stringToB64Url(name),
-      value: stringToB64Url(value),
+      name,
+      value,
     });
   }
 
